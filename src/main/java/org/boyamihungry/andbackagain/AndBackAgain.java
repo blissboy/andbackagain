@@ -8,6 +8,7 @@ import org.boyamihungry.managedvalues.valuegenerators.Oscillator;
 import org.boyamihungry.managedvalues.valuegenerators.SinusoidalOscillatorBuilder;
 import org.boyamihungry.managedvalues.values.ManagedValue;
 import processing.core.PApplet;
+import processing.core.PVector;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +26,11 @@ public class AndBackAgain extends PApplet {
     public static final int POINTS = 200;
     public static final int POINT_SPREAD = 3;
     public static final int HISTORY_HEIGHT = 100;
+
+    // for debug
+    boolean freerun = true;
+    boolean stepping = false;
+    boolean nextStep = true;
 
     ManagedValueManager mgr;
 
@@ -50,110 +56,145 @@ public class AndBackAgain extends PApplet {
             }
         };
 
-        // variables that control what happens as output
-        ManagedValue<Float> exitSize = mgr.createManagedValue("exitSize", 20f, 20f, 20f, this);
-        ManagedValue<Float> worldRadius = mgr.createManagedValue("worldRadius", 299f, 1200f, 1199f, this);
-        ManagedValue<Integer> depthOfPassage = mgr.createManagedValue("depthOfPassage", 300, 900, 500, this);
-        ManagedValue<Integer> wallSwirlCount = mgr.createManagedValue("wallSwirlCount", 50, 200, 200, this);
-        //ManagedValue<Float> wallSwirlCount = mgr.createManagedValue("wallSwirlCount", 50f, 500f, 300f, this);
-        ManagedValue<Integer> wallSwirlRadius = mgr.createManagedValue("wallSwirlRadius", 20, 700, 190, this);
-        ManagedValue<Integer> depthLayers = mgr.createManagedValue("depthLayers", 1, 33, 15, this);;
+        Callable<Long> stepper = new Callable<Long>() {
+            long value = 0;
+            @Override
+            public Long call() throws Exception {
+                return value++;
+            }
+        };
 
-        // this type of thing should be done in the manager
-        //pointMap.put(exitSize.getKey(), new ArrayList<>(POINTS));
-        Oscillator sin99 = new SinusoidalOscillatorBuilder<Float>().withFrequency(99f).withName("99").withTimecodeGetter(
-                new Callable<Long>() {
-                    @Override
-                    public Long call() throws Exception {
-                        return (long)frameCount;
-                    }
-                }
-        ).build();
-        Oscillator sin33 = new SinusoidalOscillatorBuilder<Float>().withFrequency(33f).withName("33").withTimecodeGetter(
-                new Callable<Long>() {
-                    @Override
-                    public Long call() throws Exception {
-                        return (long)frameCount;
-                    }
-                }
-        ).build();
-        Oscillator sin200 = new SinusoidalOscillatorBuilder<Float>().withFrequency(200f).withName("200").withTimecodeGetter(
-                new Callable<Long>() {
-                    @Override
-                    public Long call() throws Exception {
-                        return (long)frameCount;
-                    }
-                }
-        ).build();
-        Oscillator sin2 = new SinusoidalOscillatorBuilder<Float>().withFrequency(3f).withName("2").withTimecodeGetter(
-                new Callable<Long>() {
-                    @Override
-                    public Long call() throws Exception {
-                        return (long)frameCount;
-                    }
-                }
-        ).build();
+        Callable<Long> frameCountStepper = new Callable<Long>() {
+            @Override
+            public Long call() throws Exception {
+                return (long)frameCount;
+            }
+        };
+
+        // oscillators
+        Oscillator sin99 = new SinusoidalOscillatorBuilder<Float>().withFrequency(99f).withName("99").withTimecodeGetter(frameCountStepper).build();
+        Oscillator sin33 = new SinusoidalOscillatorBuilder<Float>().withFrequency(33f).withName("33").withTimecodeGetter(frameCountStepper).build();
+        Oscillator sin200 = new SinusoidalOscillatorBuilder<Float>().withFrequency(1200f).withName("200").withTimecodeGetter(frameCountStepper).build();
+        Oscillator sin2 = new SinusoidalOscillatorBuilder<Float>().withFrequency(3f).withName("2").withTimecodeGetter(frameCountStepper).build();
+        Oscillator stepping1200 = new SinusoidalOscillatorBuilder<Float>().withFrequency(1200f).withName("step 1200").withTimecodeGetter(stepper).build();
+        Oscillator stepping1 = new SinusoidalOscillatorBuilder<Float>().withFrequency(800f).withName("step 800").withTimecodeGetter(stepper).build();
+        Oscillator stepping2 = new SinusoidalOscillatorBuilder<Float>().withFrequency(500f).withName("step 500").withTimecodeGetter(stepper).build();
 
 
-        //        Oscillator sin66 = new SinusoidalOscillator(.0066f);
-//        Oscillator sin33 = new SinusoidalOscillator(.003f);
-//        Oscillator sin200 = new SinusoidalOscillator(.0020f);
-//        Oscillator sin500 = new SinusoidalOscillator(.0050f);
-
-        exitSize.addValueController(new OscillatorValueController<>(exitSize, sin2));
-        worldRadius.addValueController(new OscillatorValueController<>(worldRadius, sin2));
-        depthOfPassage.addValueController(new OscillatorValueController<>(depthOfPassage, sin2));
-        wallSwirlCount.addValueController(new OscillatorValueController<>(wallSwirlCount, sin200));
-        wallSwirlRadius.addValueController(new OscillatorValueController<>(wallSwirlRadius, sin99));
-        depthLayers.addValueController(new OscillatorValueController<>(depthLayers, sin33));
         try {
+            // variables that control what happens as output
+            ManagedValue<Float> exitSize =              mgr.createManagedValue("exitSize", 20f, 40f, 20f, this);
+            exitSize.addValueController(new OscillatorValueController<>(exitSize, sin200));
             exitSize.setValueController(exitSize.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Float> worldRadius =           mgr.createManagedValue("worldRadius", 299f, 1200f, 1199f, this);
+            worldRadius.addValueController(new OscillatorValueController<>(worldRadius, sin200));
             worldRadius.setValueController(worldRadius.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Integer> depthOfPassage =      mgr.createManagedValue("depthOfPassage", 100, 900, 500, this);
+            depthOfPassage.addValueController(new OscillatorValueController<>(depthOfPassage, sin200));
             depthOfPassage.setValueController(depthOfPassage.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Integer> wallSwirlCount =      mgr.createManagedValue("wallSwirlCount", 20, 200, 200, this);
+            //ManagedValue<Float> wallSwirlCount =      mgr.createManagedValue("wallSwirlCount", 50f, 500f, 300f, this);
+            wallSwirlCount.addValueController(new OscillatorValueController<>(wallSwirlCount, sin99));
             wallSwirlCount.setValueController(wallSwirlCount.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Integer> wallSwirlRadius =     mgr.createManagedValue("wallSwirlRadius", 01, 700, 190, this);
+            wallSwirlRadius.addValueController(new OscillatorValueController<>(wallSwirlRadius, sin200));
             wallSwirlRadius.setValueController(wallSwirlRadius.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Integer> depthLayers =         mgr.createManagedValue("depthLayers", 3, 100, 15, this);;
+            depthLayers.addValueController(new OscillatorValueController<>(depthLayers, sin200));
             depthLayers.setValueController(depthLayers.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Float> spinner255No1 =            mgr.createManagedValue("spinner255No1", 20f, 235f, 128f, this);;
+            spinner255No1.addValueController(new OscillatorValueController<>(spinner255No1, stepping1200));
+            spinner255No1.setValueController(spinner255No1.getAvailableValueControllers().stream().findFirst().get());
+            ManagedValue<Float> spinner255No2 =            mgr.createManagedValue("spinner255No2", 0f, 235f, 128f, this);;
+            spinner255No2.addValueController(new OscillatorValueController<>(spinner255No2, stepping1));
+            spinner255No2.setValueController(spinner255No2.getAvailableValueControllers().stream().findFirst().get());
+            ManagedValue<Float> spinner255No3 =            mgr.createManagedValue("spinner255No3", 0f, 235f, 128f, this);;
+            spinner255No3.addValueController(new OscillatorValueController<>(spinner255No3, stepping2));
+            spinner255No3.setValueController(spinner255No3.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Float> xMod =           mgr.createManagedValue("xMod", 0.5f, 1.5f, 1f, this);
+            xMod.addValueController(new OscillatorValueController<>(xMod, sin200));
+            xMod.setValueController(xMod.getAvailableValueControllers().stream().findFirst().get());
+
+            ManagedValue<Float> yMod =           mgr.createManagedValue("yMod", 0.5f, 1.5f, 1f, this);
+            yMod.addValueController(new OscillatorValueController<>(yMod, stepping2));
+            yMod.setValueController(yMod.getAvailableValueControllers().stream().findFirst().get());
+
+
+
+            // this type of thing should be done in the manager
+            //pointMap.put(exitSize.getKey(), new ArrayList<>(POINTS));
+
+
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
 
     }
 
+
     @Override
     public void draw() {
 
-        long start = System.currentTimeMillis();
-        float exitSize = mgr.getManagedValue("exitSize").getValue().floatValue();
-        float wallSwirlCount = mgr.getManagedValue("wallSwirlCount").getValue().intValue();
-        float worldRadius = mgr.getManagedValue("worldRadius").getValue().floatValue();
-        int depthOfPassage = mgr.getManagedValue("depthOfPassage").getValue().intValue();
-        int wallSwirlRadius = mgr.getManagedValue("wallSwirlRadius").getValue().intValue();
-        int depthLayers = mgr.getManagedValue("depthLayers").getValue().intValue();
+        if ( freerun || nextStep ) {
+            long start = System.currentTimeMillis();
+            float exitSize = mgr.getManagedValue("exitSize").getValue().floatValue();
+            float wallSwirlCount = mgr.getManagedValue("wallSwirlCount").getValue().intValue();
+            float worldRadius = mgr.getManagedValue("worldRadius").getValue().floatValue();
+            int depthOfPassage = mgr.getManagedValue("depthOfPassage").getValue().intValue();
+            int wallSwirlRadius = mgr.getManagedValue("wallSwirlRadius").getValue().intValue();
+            int depthLayers = mgr.getManagedValue("depthLayers").getValue().intValue();
+            int colorVal1 = mgr.getManagedValue("spinner255No1").getValue().intValue();
+            int colorVal2 = mgr.getManagedValue("spinner255No2").getValue().intValue();
+            int colorVal3 = mgr.getManagedValue("spinner255No3").getValue().intValue();
+            int balancedColor = color(colorVal1, colorVal2, colorVal3);
 
-        int worldColor = color(255, 0, 0);
-        int swirlColor = color(0,255,0);
+            int worldColor = color(255, 0, 0);
+            int swirlColor = color(0, 255, 0);
 
 
+            background(128);
+            pushMatrix();
+            translate(width / 2, height / 2);
+            pushStyle();
 
-        background(128);
-        pushMatrix();
-        translate(width / 2, height / 2);
-        pushStyle();
+            stroke(255);
+            strokeWeight(3f);
+            text("wooooooooo" + frameRate, 0, 0);
 
-        stroke(255);
-        strokeWeight(3f);
-        text("wooooooooo" + frameRate, 0,0);
+            drawExit(exitSize);
+            drawWorld(worldRadius, worldColor);
+            drawSpokes(0,TWO_PI,20,400);
 
-        // exit
-        ellipse(0, 0, exitSize * 2, exitSize * 2);
+            stroke(balancedColor);
+            strokeWeight(1f);
+            drawCirclesOnSpokes(0, TWO_PI,20, 9, wallSwirlRadius, 400, mgr.getManagedValue("xMod").getValue().floatValue(), mgr.getManagedValue("yMod").getValue().floatValue());
 
-        // worldradius
-        noFill();
-        stroke(worldColor);
-        ellipse(0, 0, worldRadius, worldRadius);
+            strokeWeight(1f);
 
-        strokeWeight(1f);
+            //long startLoop = drawSwirl(exitSize, wallSwirlCount, worldRadius, wallSwirlRadius, depthLayers, swirlColor);
 
+            popStyle();
+            popMatrix();
+
+            pushMatrix();
+            mgr.getManagedValues().forEach(mv -> {
+                line(0, 0, 300, 0);
+                translate(0, mv.drawControlPanel().y);
+            });
+            popMatrix();
+
+            nextStep = false;
+        }
+    }
+
+    private long drawSwirl(float exitSize, float wallSwirlCount, float worldRadius, int wallSwirlRadius, int depthLayers, int swirlColor) {
         float r = worldRadius - exitSize;
         float rStep = r / (depthLayers + 1);
         int adornmentCount = 0;
@@ -165,7 +206,7 @@ public class AndBackAgain extends PApplet {
         long startLoop = System.currentTimeMillis();
         stroke(swirlColor);
         do {
-            costheta = (float)FastMath.cos(theta);
+            costheta = (float) FastMath.cos(theta);
             sintheta = (float)FastMath.sin(theta);
 
             for (int layerCount=0; layerCount<depthLayers; layerCount++) {
@@ -174,69 +215,61 @@ public class AndBackAgain extends PApplet {
                         wallSwirlRadius,
                         wallSwirlRadius);
             }
-            theta = theta + ((2f * PI) / ((float) wallSwirlCount / (float) depthLayers));
+            theta = theta + ((2f * PI) / (wallSwirlCount / (float) depthLayers));
 
             adornmentCount++;
 
         } while (adornmentCount < (wallSwirlCount / depthLayers));
-        System.out.println("finish loop in " + (System.currentTimeMillis() - startLoop) + " ms");
-
-        popStyle();
-        popMatrix();
-
-        pushMatrix();
-        translate(0,mgr.getManagedValue("worldRadius").drawControlPanel().y);
-        translate(0,mgr.getManagedValue("wallSwirlCount").drawControlPanel().y);
-        translate(0,mgr.getManagedValue("wallSwirlRadius").drawControlPanel().y);
-        translate(0,mgr.getManagedValue("depthLayers").drawControlPanel().y);
-        popMatrix();
-//
-//
-//
-//        background(190);
-//        PVector origin = new PVector(0, 0);
-//        mgr.getManagedValues().forEach(mv -> {
-//            pushStyle();
-//            pushMatrix();
-//            translate(origin.x, origin.y);
-//            PVector howMuchTheyDrew = mv.drawControlPanel();
-//            popMatrix();
-//            noFill();
-//            rectMode(CORNER);
-//            rect(origin.x,
-//                    origin.y,
-//                    howMuchTheyDrew.x * 1.05f,
-//                    howMuchTheyDrew.y * 1.05f);
-//            popStyle();
-//            origin.add(0, howMuchTheyDrew.y * 1.1f);
-//            pointMap.get(mv.getKey()).add(mv.getValue());
-//            if (pointMap.get(mv.getKey()).size() > POINTS) {
-//                pointMap.get(mv.getKey()).remove(0);
-//            }
-//        });
-//
-//        // draw the history of the mvs
-//        mgr.getManagedValues().forEach(mv -> {
-//            pushMatrix();
-//            noFill();
-//            rectMode(CORNER);
-//            rect(origin.x, origin.y, POINTS * POINT_SPREAD, HISTORY_HEIGHT);
-//            PVector historyX = new PVector(0, 0);
-//            translate(origin.x, origin.y);
-//            PVector lastVal =  new PVector(0f,0F);
-//            pointMap.get(mv.getKey()).stream().map(
-//                    n -> HISTORY_HEIGHT * ((n.floatValue() - mv.getRange().getMin().floatValue()) / (mv.getRange().getMax().floatValue() - mv.getRange().getMin().floatValue())))
-//                    .forEach(number -> {
-//                        point(historyX.x, number);
-//                        line(historyX.x, number, historyX.x - 1, lastVal.y);
-//                        historyX.add(POINT_SPREAD,0);
-//                        lastVal.y = number;
-//                    });
-//
-//            popMatrix();
-//            origin.add(0,HISTORY_HEIGHT + 5);
-//        });
+        return startLoop;
     }
+
+    private void drawWorld(float worldRadius, int worldColor) {
+        // worldradius
+        noFill();
+        stroke(worldColor);
+        ellipse(0, 0, worldRadius, worldRadius);
+    }
+
+    private void drawExit(float exitSize) {
+        // exit
+        ellipse(0, 0, exitSize * 2, exitSize * 2);
+    }
+
+    private void drawStyledSpokes(Stylizer stylizer, float startAngle, float endAngle, int numberOfSpokes, float length) {
+        try {
+            pushMatrix();
+            stylizer.setStyle();
+            drawSpokes(startAngle,endAngle,numberOfSpokes,length);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            popMatrix();
+        }
+    }
+
+
+    private void drawSpokes(float startAngle, float endAngle, int numberOfSpokes, float length) {
+        PVector spoke;
+        for ( float curAngle = startAngle; curAngle <= endAngle; curAngle += (endAngle-startAngle) / (float)numberOfSpokes ) {
+            spoke = PVector.fromAngle(curAngle).mult(length);
+            line(0,0,spoke.x,spoke.y);
+        }
+    }
+
+    private void drawCirclesOnSpokes(float startAngle, float endAngle, int numberOfSpokes, int circlesPerSpoke, float radius, float spokeLength, float xMod, float yMod) {
+        PVector spoke;
+        PVector ptOnSpoke;
+        for ( float curAngle = startAngle; curAngle <= endAngle; curAngle += (endAngle-startAngle) / (float)numberOfSpokes ) {
+            spoke = PVector.fromAngle(curAngle).mult(spokeLength);
+            line(0,0,spoke.x,spoke.y);
+            for (float i=0; i<circlesPerSpoke; i++) {
+                ellipse(spoke.x / i, spoke.y / i, radius * xMod, radius * yMod);
+            }
+        }
+    }
+
+
+
 
 
     static public void main(String[] passedArgs) {
@@ -245,6 +278,18 @@ public class AndBackAgain extends PApplet {
             PApplet.main(concat(appletArgs, passedArgs));
         } else {
             PApplet.main(appletArgs);
+        }
+    }
+
+    @Override
+    public void keyPressed() {
+        super.keyPressed();
+        if ( key == 'b' || key == 'B' ) {
+            freerun = !freerun;
+        } else {
+            if (key == ' '){
+                nextStep = true;
+            }
         }
     }
 }
