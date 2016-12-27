@@ -125,7 +125,16 @@ public class AndBackAgain extends PApplet {
             ManagedValue<Float> yMod =           mgr.createManagedValue("yMod", 0.5f, 1.5f, 1f, this);
             yMod.addValueController(new OscillatorValueController<>(yMod, stepping2));
             yMod.setValueController(yMod.getAvailableValueControllers().stream().findFirst().get());
-
+            
+            ManagedValue<Float> twoPiVal = mgr.createManagedValue("twoPiVal", 0f, TWO_PI, 0f, this);
+            twoPiVal.addValueController(new OscillatorValueController<>(twoPiVal, sin200));
+            twoPiVal.setValueController(twoPiVal.getAvailableValueControllers().stream().findFirst().get());
+            ManagedValue<Integer> spiralOuterLimit =      mgr.createManagedValue("spiralOuterLimit", 400, 700, 500, this);
+            spiralOuterLimit.addValueController(new OscillatorValueController<>(spiralOuterLimit, sin200));
+            spiralOuterLimit.setValueController(spiralOuterLimit.getAvailableValueControllers().stream().findFirst().get());
+            ManagedValue<Integer> spiralInnerLimit =      mgr.createManagedValue("spiralInnerLimit", 0, 300, 100, this);
+            spiralInnerLimit.addValueController(new OscillatorValueController<>(spiralInnerLimit, sin200));
+            spiralInnerLimit.setValueController(spiralInnerLimit.getAvailableValueControllers().stream().findFirst().get());
 
 
             // this type of thing should be done in the manager
@@ -154,6 +163,7 @@ public class AndBackAgain extends PApplet {
             int colorVal2 = mgr.getManagedValue("spinner255No2").getValue().intValue();
             int colorVal3 = mgr.getManagedValue("spinner255No3").getValue().intValue();
             int balancedColor = color(colorVal1, colorVal2, colorVal3);
+            int balancedColor180 = color(colorVal1 + 128, colorVal2 + 128, colorVal3 + 128);
 
             int worldColor = color(255, 0, 0);
             int swirlColor = color(0, 255, 0);
@@ -176,6 +186,8 @@ public class AndBackAgain extends PApplet {
             strokeWeight(1f);
             drawCirclesOnSpokes(0, TWO_PI,20, 9, wallSwirlRadius, 400, mgr.getManagedValue("xMod").getValue().floatValue(), mgr.getManagedValue("yMod").getValue().floatValue());
 
+            stroke(balancedColor180);
+            drawSpirals(7, 0f);
             strokeWeight(1f);
 
             //long startLoop = drawSwirl(exitSize, wallSwirlCount, worldRadius, wallSwirlRadius, depthLayers, swirlColor);
@@ -267,6 +279,56 @@ public class AndBackAgain extends PApplet {
             }
         }
     }
+
+
+    private void drawSpirals(int numberOfSpirals, float startAngle) {
+        
+        float lineLength = 1.05f;
+
+        float startRadianBase = mgr.getManagedValue("twoPiVal").getValue().floatValue();
+        float outerRadius = mgr.getManagedValue("spiralOuterLimit").getValue().floatValue();
+        float innerRadius = mgr.getManagedValue("spiralInnerLimit").getValue().floatValue();
+
+        for ( float startAngleDelta = 0f; startAngleDelta < TWO_PI; startAngleDelta += TWO_PI / (float)numberOfSpirals) {
+            drawSpiral(lineLength,
+                    1.8f,
+                    startRadianBase + startAngleDelta,
+                    outerRadius,
+                    innerRadius);
+        }
+    }
+
+    //linelength 1.05f numCircles 3.6
+    void drawSpiral(float lineLength, float numofCircles, float startRadian, float startRadius, float endRadius) {
+
+        float currRadius = startRadius;
+        float totalRadian = numofCircles * TWO_PI;
+        float endRadian = startRadian + totalRadian;
+        float currentRadian = startRadian;
+
+        // This depends on the current radius
+        float deltaAngle;
+        // Spiral starts from outside
+        float lastX = cos(startRadian) * startRadius;
+        float lastY = sin(startRadian) * startRadius;
+        float nextX, nextY;
+
+        while (currentRadian < endRadian)
+        {
+          deltaAngle = PI * lineLength / currRadius;
+          currentRadian += deltaAngle;
+          currRadius = map(currentRadian, startRadian, endRadian, startRadius, endRadius);
+
+          nextX = cos(currentRadian) * currRadius;
+          nextY = sin(currentRadian) * currRadius;
+          line(lastX, lastY, nextX, nextY);
+          lastX = nextX;
+          lastY = nextY;
+        }
+    }
+
+
+
 
 
 
